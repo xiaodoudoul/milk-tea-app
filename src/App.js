@@ -191,7 +191,13 @@ function App() {
       text.match(/\*\*日期\*\*[：:]\s*(.+?)(?:\n|$)/m) ||
       text.match(/日期[：:]\s*(.+?)(?:\n|$)/m) ||
       text.match(/\*\*时间\*\*[：:]\s*(.+?)(?:\n|$)/m) ||
-      text.match(/时间[：:]\s*(.+?)(?:\n|$)/m);
+      text.match(/时间[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/\*\*购买时间\*\*[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/购买时间[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/\*\*消费日期\*\*[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/消费日期[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/\*\*交易日期\*\*[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/交易日期[：:]\s*(.+?)(?:\n|$)/m);
 
     const brand = brandMatch ? brandMatch[1].trim() : null;
     const flavor = flavorMatch ? flavorMatch[1].trim() : null;
@@ -207,11 +213,15 @@ function App() {
         // 尝试多种常见的日期格式
         const formats = [
           "YYYY年MM月DD日",
+          "YYYY年M月D日",
           "YYYY-MM-DD",
           "YYYY/MM/DD",
           "MM月DD日",
+          "M月D日",
           "MM-DD",
+          "M-D",
           "MM/DD",
+          "M/D",
         ];
 
         console.log("尝试解析日期:", date);
@@ -219,15 +229,48 @@ function App() {
         // 如果是"MM月DD日"或"MM-DD"或"MM/DD"格式，添加当前年份
         if (/^\d{1,2}[月/-]\d{1,2}[日]?$/.test(date)) {
           const currentYear = dayjs().year();
-          const formattedDate = date.replace(/[月日]/g, "-").replace(/\/$/, "");
+          // 处理各种格式
+          let formattedDate = date;
+
+          // 处理中文日期格式
+          if (date.includes("月")) {
+            formattedDate = date.replace(/(\d+)月(\d+)[日]?/, "$1-$2");
+          }
+          // 处理斜杠格式
+          else if (date.includes("/")) {
+            formattedDate = date.replace("/", "-");
+          }
+          // 其他格式保持不变
+
           purchaseDate = dayjs(`${currentYear}-${formattedDate}`).format(
             "YYYY-MM-DD"
           );
           console.log("解析短日期格式:", date, "->", purchaseDate);
         } else {
           // 尝试使用dayjs解析日期
-          const parsedDate = dayjs(date, formats);
-          if (parsedDate.isValid()) {
+          let parsedDate;
+
+          // 尝试每一种格式
+          for (const format of formats) {
+            const attemptParse = dayjs(date, format);
+            if (attemptParse.isValid()) {
+              parsedDate = attemptParse;
+              console.log(
+                `成功使用格式 ${format} 解析日期:`,
+                date,
+                "->",
+                parsedDate.format("YYYY-MM-DD")
+              );
+              break;
+            }
+          }
+
+          // 如果所有格式都失败，尝试自动检测
+          if (!parsedDate || !parsedDate.isValid()) {
+            parsedDate = dayjs(date);
+          }
+
+          if (parsedDate && parsedDate.isValid()) {
             purchaseDate = parsedDate.format("YYYY-MM-DD");
             console.log("成功解析日期:", date, "->", purchaseDate);
           } else {
