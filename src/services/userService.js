@@ -38,6 +38,8 @@ export const login = async (credentials) => {
  */
 export const register = async (userData) => {
   try {
+    console.log("发送注册请求:", userData.username);
+
     const response = await fetch("http://localhost:3001/api/auth/register", {
       method: "POST",
       headers: {
@@ -46,18 +48,24 @@ export const register = async (userData) => {
       body: JSON.stringify(userData),
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      throw new Error(`注册失败: ${response.status} ${response.statusText}`);
+      console.error("注册请求失败:", response.status, data);
+      throw new Error(
+        data.error || `注册失败: ${response.status} ${response.statusText}`
+      );
     }
 
-    const data = await response.json();
+    console.log("注册请求成功:", data);
 
     // 保存用户ID到本地存储
     localStorageService.saveUserId(data.userId);
+    console.log("用户ID已保存到本地存储:", data.userId);
 
     return data;
   } catch (error) {
-    console.error("注册失败:", error);
+    console.error("注册过程中出现错误:", error);
     throw error;
   }
 };

@@ -85,11 +85,15 @@ const AuthDialog = ({ open, onClose, onLoginSuccess }) => {
       setLoading(true);
       setError("");
 
+      console.log("开始注册用户:", username);
       const result = await register({ username, password });
+      console.log("注册成功:", result);
 
       // 尝试同步本地数据
       setSyncStatus({ status: "syncing", message: "正在同步本地数据..." });
+      console.log("开始同步本地数据");
       const syncResult = await syncLocalData();
+      console.log("同步结果:", syncResult);
       setSyncStatus({
         status: syncResult.success ? "success" : "error",
         message: syncResult.message,
@@ -103,6 +107,7 @@ const AuthDialog = ({ open, onClose, onLoginSuccess }) => {
         onClose();
       }, 2000);
     } catch (error) {
+      console.error("注册失败:", error);
       setError(error.message || "注册失败，请稍后再试");
     } finally {
       setLoading(false);
