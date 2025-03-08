@@ -51,7 +51,8 @@ const ServerDay = (props) => {
   // 检查当天是否有奶茶记录
   const isTeaDay = teaRecords.some(
     (record) =>
-      dayjs(record.date).format("YYYY-MM-DD") === day.format("YYYY-MM-DD")
+      dayjs(record.purchaseDate).format("YYYY-MM-DD") ===
+      day.format("YYYY-MM-DD")
   );
 
   // 检查是否是选中的日期
@@ -178,7 +179,7 @@ const TeaCalendar = ({ teaRecords = [] }) => {
 
     const dateStr = date.format("YYYY-MM-DD");
     return teaRecords.filter(
-      (record) => dayjs(record.date).format("YYYY-MM-DD") === dateStr
+      (record) => dayjs(record.purchaseDate).format("YYYY-MM-DD") === dateStr
     );
   };
 
