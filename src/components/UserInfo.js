@@ -16,7 +16,8 @@ import SyncIcon from "@mui/icons-material/Sync";
 import LogoutIcon from "@mui/icons-material/Logout";
 import CloudOffIcon from "@mui/icons-material/CloudOff";
 import { isLoggedIn, logout, getCurrentUserId } from "../services/userService";
-import { syncLocalData, getUnsyncedRecords } from "../services/milkTeaService";
+import { syncLocalData } from "../services/milkTeaService";
+import { getUnsyncedRecords } from "../services/localStorageService";
 import AuthDialog from "./AuthDialog";
 
 /**
