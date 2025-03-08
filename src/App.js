@@ -9,13 +9,16 @@ import {
   Fab,
   Zoom,
   Button,
+  CircularProgress,
 } from "@mui/material";
 import LocalFireDepartmentIcon from "@mui/icons-material/LocalFireDepartment";
 import ChatInterface from "./components/ChatInterface";
 import InputArea from "./components/InputArea";
 import TeaCalendar from "./components/TeaCalendar";
-import { extractTextFromImage } from "./utils/ocrUtils";
+import MilkTeaRecords from "./components/MilkTeaRecords";
+import { extractTextFromImage } from "./utils/tencentOcrUtils";
 import { recognizeMilkTeaInfo } from "./services/deepseekService";
+import { getAllMilkTeas, createMilkTea } from "./services/milkTeaService";
 import dayjs from "dayjs";
 import "./App.css";
 
@@ -53,6 +56,21 @@ function App() {
   const [teaRecords, setTeaRecords] = useState([]);
   const [lastTeaInfo, setLastTeaInfo] = useState(null);
   const [showCaloriesButton, setShowCaloriesButton] = useState(false);
+  const [isLoadingCalories, setIsLoadingCalories] = useState(false);
+
+  // 在组件加载时获取奶茶消费记录
+  useEffect(() => {
+    const fetchTeaRecords = async () => {
+      try {
+        const records = await getAllMilkTeas();
+        setTeaRecords(records);
+      } catch (error) {
+        console.error("获取奶茶记录失败:", error);
+      }
+    };
+
+    fetchTeaRecords();
+  }, []);
 
   // 使用 useEffect 监听 lastTeaInfo 的变化
   useEffect(() => {
@@ -60,12 +78,13 @@ function App() {
       console.log("lastTeaInfo 更新:", lastTeaInfo);
       setShowCaloriesButton(true);
     } else {
+      console.log("lastTeaInfo 被重置，隐藏热量查询按钮");
       setShowCaloriesButton(false);
     }
   }, [lastTeaInfo]);
 
   // 解析识别结果并添加到记录中
-  const parseAndAddRecord = (text) => {
+  const parseAndAddRecord = async (text) => {
     console.log("开始解析奶茶信息:", text);
 
     // 使用适用于 Markdown 格式的正则表达式
@@ -90,21 +109,32 @@ function App() {
     console.log("解析结果:", { brand, flavor, price, date });
 
     if (brand && flavor && price) {
+      const purchaseDate = date
+        ? dayjs(date, "YYYY年MM月DD日").format("YYYY-MM-DD")
+        : dayjs().format("YYYY-MM-DD");
+
       const record = {
         brand,
         flavor,
-        price,
-        date: date
-          ? dayjs(date, "YYYY年MM月DD日").format("YYYY-MM-DD")
-          : dayjs().format("YYYY-MM-DD"),
+        price: parseFloat(price),
+        purchaseDate,
       };
 
       console.log("添加奶茶记录:", record);
-      setTeaRecords((prev) => [...prev, record]);
 
-      // 保存最后一次的奶茶信息，用于热量查询
-      console.log("设置最后一次奶茶信息");
-      setLastTeaInfo({ brand, flavor, price });
+      try {
+        // 保存到后端
+        const savedRecord = await createMilkTea(record);
+        console.log("记录已保存到后端:", savedRecord);
+
+        // 更新本地状态
+        setTeaRecords((prev) => [...prev, savedRecord]);
+
+        // 设置最后一条记录，用于热量查询
+        setLastTeaInfo(savedRecord);
+      } catch (error) {
+        console.error("保存记录失败:", error);
+      }
     } else {
       console.log("未能成功解析奶茶信息");
     }
@@ -116,15 +146,19 @@ function App() {
 
     try {
       setIsProcessing(true);
+      setIsLoadingCalories(true);
 
       // 构建查询文本
       const queryText = `请根据以下奶茶信息推断奶茶营养，包括热量、含糖量、咖啡因含量：
 品牌：${lastTeaInfo.brand}
-口味：${lastTeaInfo.flavor}
-价格：${lastTeaInfo.price}元`;
+口味：${lastTeaInfo.flavor}`;
 
-      // 添加用户消息到聊天
-      const userMessage = { sender: "user", type: "text", content: queryText };
+      // 添加用户消息
+      const userMessage = {
+        sender: "user",
+        type: "text",
+        content: queryText,
+      };
       setMessages((prev) => [...prev, userMessage]);
 
       // 添加AI回复占位消息
@@ -142,10 +176,67 @@ function App() {
           }
           return newMessages;
         });
-      });
+      }).then(async (response) => {
+        const aiResponse = response.choices[0].message.content;
+        console.log("AI响应完成:", aiResponse);
 
-      // 隐藏热量查询按钮
-      setLastTeaInfo(null); // 通过设置 lastTeaInfo 为 null 来隐藏按钮
+        // 解析热量信息
+        const caloriesMatch = aiResponse.match(/热量[：:]\s*(\d+)/);
+        const sugarMatch = aiResponse.match(/含糖量[：:]\s*(\d+)/);
+        const caffeineMatch = aiResponse.match(/咖啡因[：:]\s*(\d+)/);
+        const fatMatch = aiResponse.match(/脂肪[：:]\s*(\d+)/);
+
+        if (caloriesMatch || sugarMatch || caffeineMatch || fatMatch) {
+          const calories = caloriesMatch ? parseInt(caloriesMatch[1]) : null;
+          const sugar = sugarMatch ? parseInt(sugarMatch[1]) : null;
+          const caffeine = caffeineMatch ? parseInt(caffeineMatch[1]) : null;
+          const fat = fatMatch ? parseInt(fatMatch[1]) : null;
+
+          console.log("解析到的营养信息:", { calories, sugar, caffeine, fat });
+
+          // 更新后端记录
+          try {
+            // 构建更新数据
+            const updateData = {
+              ...lastTeaInfo,
+              calories,
+              sugar,
+              caffeine,
+              fat,
+            };
+
+            // 调用API更新记录
+            const response = await fetch(
+              `http://localhost:3001/api/milktea/${lastTeaInfo.id}`,
+              {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(updateData),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(
+                `更新记录失败: ${response.status} ${response.statusText}`
+              );
+            }
+
+            const updatedRecord = await response.json();
+            console.log("记录已更新:", updatedRecord);
+
+            // 更新本地状态
+            setTeaRecords((prev) =>
+              prev.map((record) =>
+                record.id === updatedRecord.id ? updatedRecord : record
+              )
+            );
+          } catch (error) {
+            console.error("更新记录失败:", error);
+          }
+        }
+      });
     } catch (error) {
       console.error("查询热量信息失败:", error);
       // 添加错误消息
@@ -162,7 +253,10 @@ function App() {
         return [...filtered, errorMessage];
       });
     } finally {
+      // 无论成功与否，都隐藏热量查询按钮
+      setLastTeaInfo(null);
       setIsProcessing(false);
+      setIsLoadingCalories(false);
     }
   };
 
@@ -217,7 +311,10 @@ function App() {
       });
       setLastTeaInfo(null); // 重置 lastTeaInfo
     } finally {
-      setIsProcessing(false);
+      // 延迟一秒后结束处理状态，让用户有时间看到完整的响应
+      setTimeout(() => {
+        setIsProcessing(false);
+      }, 1000);
     }
   };
 
@@ -305,7 +402,10 @@ function App() {
       // 确保错误时不显示热量查询按钮
       setLastTeaInfo(null); // 重置 lastTeaInfo
     } finally {
-      setIsProcessing(false);
+      // 延迟一秒后结束处理状态，让用户有时间看到完整的响应
+      setTimeout(() => {
+        setIsProcessing(false);
+      }, 1000);
     }
   };
 
@@ -320,34 +420,13 @@ function App() {
         </Box>
 
         <Box sx={{ mb: 4, position: "relative" }}>
-          <ChatInterface messages={messages} />
-
-          {/* 移除悬浮按钮 */}
-
-          <Box
-            sx={{
-              display: lastTeaInfo ? "flex" : "none",
-              justifyContent: "center",
-              mt: 2,
-              mb: 2,
-            }}
-          >
-            <Button
-              variant="contained"
-              color="secondary"
-              startIcon={<LocalFireDepartmentIcon />}
-              endIcon={<span>→</span>}
-              onClick={handleCaloriesQuery}
-              sx={{
-                borderRadius: 4,
-                py: 1,
-                px: 3,
-                boxShadow: 3,
-              }}
-            >
-              想知道奶茶的热量？
-            </Button>
-          </Box>
+          <ChatInterface
+            messages={messages}
+            lastTeaInfo={lastTeaInfo}
+            isLoadingCalories={isLoadingCalories}
+            handleCaloriesQuery={handleCaloriesQuery}
+            showCaloriesButton={showCaloriesButton}
+          />
 
           <InputArea
             onSendMessage={handleSendMessage}
@@ -358,6 +437,10 @@ function App() {
 
         <Box sx={{ mt: 4 }}>
           <TeaCalendar teaRecords={teaRecords} />
+        </Box>
+
+        <Box sx={{ mt: 4 }}>
+          <MilkTeaRecords teaRecords={teaRecords} />
         </Box>
       </Container>
     </ThemeProvider>

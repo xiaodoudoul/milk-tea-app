@@ -8,6 +8,7 @@ import {
   useMediaQuery,
   CircularProgress,
   InputAdornment,
+  Tooltip,
 } from "@mui/material";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import SendIcon from "@mui/icons-material/Send";
@@ -75,12 +76,13 @@ const InputArea = ({ onSendMessage, onImageUpload, isProcessing }) => {
         style={{ display: "none" }}
         ref={fileInputRef}
         onChange={handleFileChange}
+        disabled={isProcessing}
       />
 
       <TextField
         fullWidth
         multiline={false}
-        placeholder="输入文字或上传图片..."
+        placeholder={isProcessing ? "正在处理中..." : "输入文字或上传图片..."}
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onKeyPress={handleKeyPress}
@@ -90,6 +92,7 @@ const InputArea = ({ onSendMessage, onImageUpload, isProcessing }) => {
           "& .MuiOutlinedInput-root": {
             borderRadius: "16px",
             height: isMobile ? "40px" : "48px",
+            opacity: isProcessing ? 0.7 : 1,
           },
           "& .MuiInputBase-input": {
             padding: isMobile ? "8px 14px" : "12px 14px",
@@ -100,19 +103,32 @@ const InputArea = ({ onSendMessage, onImageUpload, isProcessing }) => {
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <IconButton
-                color="primary"
-                onClick={() => fileInputRef.current.click()}
-                disabled={isProcessing}
-                edge="start"
-                sx={{
-                  padding: isMobile ? "4px" : "8px",
-                  marginLeft: "4px",
-                  borderRadius: "50%",
-                }}
-              >
-                <AttachFileIcon fontSize={isMobile ? "small" : "medium"} />
-              </IconButton>
+              <Tooltip title={isProcessing ? "处理中..." : "上传图片"}>
+                <span>
+                  <IconButton
+                    color="primary"
+                    onClick={() => fileInputRef.current.click()}
+                    disabled={isProcessing}
+                    edge="start"
+                    sx={{
+                      padding: isMobile ? "4px" : "8px",
+                      marginLeft: "4px",
+                      borderRadius: "50%",
+                    }}
+                  >
+                    {isProcessing ? (
+                      <CircularProgress
+                        size={isMobile ? 16 : 20}
+                        color="primary"
+                      />
+                    ) : (
+                      <AttachFileIcon
+                        fontSize={isMobile ? "small" : "medium"}
+                      />
+                    )}
+                  </IconButton>
+                </span>
+              </Tooltip>
             </InputAdornment>
           ),
         }}
@@ -138,6 +154,7 @@ const InputArea = ({ onSendMessage, onImageUpload, isProcessing }) => {
           justifyContent: "center",
           whiteSpace: "nowrap",
           alignSelf: "center",
+          opacity: isProcessing ? 0.7 : 1,
         }}
       >
         {isProcessing ? (
