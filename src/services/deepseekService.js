@@ -1,7 +1,5 @@
-import axios from "axios";
-
-const DEEPSEEK_API_KEY = "xxx";
-const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
+// 后端API配置
+const API_BASE_URL = "http://localhost:3001/api/deepseek";
 
 /**
  * 发送文本到DeepSeek API进行奶茶信息识别（流式返回）
@@ -47,23 +45,21 @@ export const recognizeMilkTeaInfo = async (text, onChunk) => {
 
     // 创建响应对象
     const controller = new AbortController();
-    const response = await fetch(DEEPSEEK_API_URL, {
+    const response = await fetch(`${API_BASE_URL}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "deepseek-chat",
         messages: [
           {
             role: "user",
             content: prompt,
           },
         ],
+        model: "deepseek-chat",
         temperature: 0.7,
         max_tokens: 800,
-        stream: true,
       }),
       signal: controller.signal,
     });
@@ -72,62 +68,24 @@ export const recognizeMilkTeaInfo = async (text, onChunk) => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let fullContent = "";
-    let buffer = "";
+    const data = await response.json();
+    const content = data.choices[0].message.content;
 
-    // 处理流式响应
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      // 解码二进制数据
-      const chunk = decoder.decode(value, { stream: true });
-      buffer += chunk;
-
-      // 处理数据行
-      while (buffer.includes("\n")) {
-        const lineEnd = buffer.indexOf("\n");
-        const line = buffer.slice(0, lineEnd);
-        buffer = buffer.slice(lineEnd + 1);
-
-        if (line.startsWith("data: ")) {
-          const data = line.slice(6);
-
-          // 检查是否是 [DONE] 标记
-          if (data.trim() === "[DONE]") {
-            continue;
-          }
-
-          try {
-            const parsed = JSON.parse(data);
-            if (
-              parsed.choices &&
-              parsed.choices[0].delta &&
-              parsed.choices[0].delta.content
-            ) {
-              const content = parsed.choices[0].delta.content;
-              fullContent += content;
-
-              // 调用回调函数处理每个数据块
-              if (onChunk) {
-                onChunk(content, fullContent);
-              }
-            }
-          } catch (e) {
-            console.error("解析流数据出错:", e);
-          }
-        }
+    // 由于后端不支持流式响应，我们模拟流式效果
+    if (onChunk) {
+      const chunkSize = 10;
+      for (let i = 0; i < content.length; i += chunkSize) {
+        const chunk = content.slice(i, i + chunkSize);
+        onChunk(chunk, content.slice(0, i + chunkSize));
+        await new Promise((resolve) => setTimeout(resolve, 50)); // 添加50ms延迟
       }
     }
 
-    // 返回完整的响应内容
     return {
       choices: [
         {
           message: {
-            content: fullContent,
+            content,
           },
         },
       ],
