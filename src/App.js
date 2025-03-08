@@ -10,15 +10,24 @@ import {
   Zoom,
   Button,
   CircularProgress,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import LocalFireDepartmentIcon from "@mui/icons-material/LocalFireDepartment";
 import ChatInterface from "./components/ChatInterface";
 import InputArea from "./components/InputArea";
 import TeaCalendar from "./components/TeaCalendar";
 import MilkTeaRecords from "./components/MilkTeaRecords";
+import UserInfo from "./components/UserInfo";
 import { extractTextFromImage } from "./utils/tencentOcrUtils";
 import { recognizeMilkTeaInfo } from "./services/deepseekService";
-import { getAllMilkTeas, createMilkTea } from "./services/milkTeaService";
+import {
+  getAllMilkTeas,
+  createMilkTea,
+  updateMilkTea,
+} from "./services/milkTeaService";
+import * as localStorageService from "./services/localStorageService";
+import { isLoggedIn } from "./services/userService";
 import dayjs from "dayjs";
 import "./App.css";
 
@@ -57,20 +66,57 @@ function App() {
   const [lastTeaInfo, setLastTeaInfo] = useState(null);
   const [showCaloriesButton, setShowCaloriesButton] = useState(false);
   const [isLoadingCalories, setIsLoadingCalories] = useState(false);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(true);
+  const [notification, setNotification] = useState(null);
+  const [loginStatus, setLoginStatus] = useState(isLoggedIn());
 
   // 在组件加载时获取奶茶消费记录
   useEffect(() => {
     const fetchTeaRecords = async () => {
       try {
+        setIsLoadingRecords(true);
         const records = await getAllMilkTeas();
         setTeaRecords(records);
       } catch (error) {
         console.error("获取奶茶记录失败:", error);
+        setNotification({
+          type: "error",
+          message: "获取奶茶记录失败，使用本地数据",
+        });
+      } finally {
+        setIsLoadingRecords(false);
       }
     };
 
     fetchTeaRecords();
   }, []);
+
+  // 监听登录状态变化，重新获取记录
+  useEffect(() => {
+    const fetchTeaRecords = async () => {
+      try {
+        setIsLoadingRecords(true);
+        const records = await getAllMilkTeas({}, true); // 强制从后端获取
+        setTeaRecords(records);
+        setNotification({
+          type: "success",
+          message: "已获取云端数据",
+        });
+      } catch (error) {
+        console.error("获取奶茶记录失败:", error);
+        setNotification({
+          type: "error",
+          message: "获取云端数据失败，使用本地数据",
+        });
+      } finally {
+        setIsLoadingRecords(false);
+      }
+    };
+
+    if (loginStatus) {
+      fetchTeaRecords();
+    }
+  }, [loginStatus]);
 
   // 使用 useEffect 监听 lastTeaInfo 的变化
   useEffect(() => {
@@ -82,6 +128,46 @@ function App() {
       setShowCaloriesButton(false);
     }
   }, [lastTeaInfo]);
+
+  // 处理登录状态变化
+  const handleLoginStatusChange = (isLoggedIn, userData) => {
+    setLoginStatus(isLoggedIn);
+    if (isLoggedIn) {
+      setNotification({
+        type: "success",
+        message: `欢迎回来，用户ID: ${userData.userId}`,
+      });
+    } else {
+      setNotification({
+        type: "info",
+        message: "您已退出登录，现在使用本地数据",
+      });
+    }
+  };
+
+  // 处理同步完成
+  const handleSyncComplete = (result) => {
+    if (result.success) {
+      setNotification({
+        type: "success",
+        message: result.message,
+      });
+      // 刷新记录
+      getAllMilkTeas().then((records) => {
+        setTeaRecords(records);
+      });
+    } else {
+      setNotification({
+        type: "error",
+        message: result.message,
+      });
+    }
+  };
+
+  // 关闭通知
+  const handleCloseNotification = () => {
+    setNotification(null);
+  };
 
   // 解析识别结果并添加到记录中
   const parseAndAddRecord = async (text) => {
@@ -123,20 +209,33 @@ function App() {
       console.log("添加奶茶记录:", record);
 
       try {
-        // 保存到后端
+        // 保存到后端或本地存储
         const savedRecord = await createMilkTea(record);
-        console.log("记录已保存到后端:", savedRecord);
+        console.log("记录已保存:", savedRecord);
 
         // 更新本地状态
         setTeaRecords((prev) => [...prev, savedRecord]);
 
         // 设置最后一条记录，用于热量查询
         setLastTeaInfo(savedRecord);
+
+        setNotification({
+          type: "success",
+          message: `已添加奶茶记录: ${brand} ${flavor}`,
+        });
       } catch (error) {
         console.error("保存记录失败:", error);
+        setNotification({
+          type: "error",
+          message: "保存记录失败",
+        });
       }
     } else {
       console.log("未能成功解析奶茶信息");
+      setNotification({
+        type: "warning",
+        message: "未能成功解析奶茶信息，请检查输入",
+      });
     }
   };
 
@@ -194,7 +293,7 @@ function App() {
 
           console.log("解析到的营养信息:", { calories, sugar, caffeine, fat });
 
-          // 更新后端记录
+          // 更新记录
           try {
             // 构建更新数据
             const updateData = {
@@ -206,24 +305,10 @@ function App() {
             };
 
             // 调用API更新记录
-            const response = await fetch(
-              `http://localhost:3001/api/milktea/${lastTeaInfo.id}`,
-              {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(updateData),
-              }
+            const updatedRecord = await updateMilkTea(
+              lastTeaInfo.id,
+              updateData
             );
-
-            if (!response.ok) {
-              throw new Error(
-                `更新记录失败: ${response.status} ${response.statusText}`
-              );
-            }
-
-            const updatedRecord = await response.json();
             console.log("记录已更新:", updatedRecord);
 
             // 更新本地状态
@@ -232,8 +317,17 @@ function App() {
                 record.id === updatedRecord.id ? updatedRecord : record
               )
             );
+
+            setNotification({
+              type: "success",
+              message: "已更新奶茶营养信息",
+            });
           } catch (error) {
             console.error("更新记录失败:", error);
+            setNotification({
+              type: "error",
+              message: "更新营养信息失败",
+            });
           }
         }
       });
@@ -251,6 +345,11 @@ function App() {
           (msg) => !(msg.sender === "ai" && msg.content === "")
         );
         return [...filtered, errorMessage];
+      });
+
+      setNotification({
+        type: "error",
+        message: "查询热量信息失败",
       });
     } finally {
       // 无论成功与否，都隐藏热量查询按钮
@@ -413,10 +512,21 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <Box sx={{ mb: 4, textAlign: "center" }}>
-          <Typography variant="h3" component="h1" gutterBottom color="primary">
+        <Box
+          sx={{
+            mb: 4,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Typography variant="h3" component="h1" color="primary">
             奶茶星球
           </Typography>
+          <UserInfo
+            onLoginStatusChange={handleLoginStatusChange}
+            onSyncComplete={handleSyncComplete}
+          />
         </Box>
 
         <Box sx={{ mb: 4, position: "relative" }}>
@@ -439,9 +549,45 @@ function App() {
           <TeaCalendar teaRecords={teaRecords} />
         </Box>
 
-        <Box sx={{ mt: 4 }}>
+        <Box sx={{ mt: 4, position: "relative" }}>
+          {isLoadingRecords && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "rgba(255, 255, 255, 0.7)",
+                zIndex: 1,
+              }}
+            >
+              <CircularProgress />
+            </Box>
+          )}
           <MilkTeaRecords teaRecords={teaRecords} />
         </Box>
+
+        {/* 通知提示 */}
+        <Snackbar
+          open={!!notification}
+          autoHideDuration={3000}
+          onClose={handleCloseNotification}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          {notification && (
+            <Alert
+              onClose={handleCloseNotification}
+              severity={notification.type}
+              sx={{ width: "100%" }}
+            >
+              {notification.message}
+            </Alert>
+          )}
+        </Snackbar>
       </Container>
     </ThemeProvider>
   );
