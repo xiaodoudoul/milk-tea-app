@@ -1,5 +1,10 @@
 const { sequelize } = require("../config/database");
 const MilkTea = require("./milkTea");
+const User = require("./user");
+
+// 设置模型关联
+User.hasMany(MilkTea, { foreignKey: "userId" });
+MilkTea.belongsTo(User, { foreignKey: "userId" });
 
 // 初始化所有模型
 const initModels = async () => {
@@ -15,5 +20,6 @@ const initModels = async () => {
 module.exports = {
   sequelize,
   MilkTea,
+  User,
   initModels,
 };

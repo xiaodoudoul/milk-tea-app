@@ -4,6 +4,7 @@ const cors = require("cors");
 const deepseekRoutes = require("./routes/deepseek");
 const milkTeaRoutes = require("./routes/milkTea");
 const ocrRoutes = require("./routes/ocr");
+const authRoutes = require("./routes/auth");
 const errorHandler = require("./middleware/errorHandler");
 const logger = require("./middleware/logger");
 const { testConnection } = require("./config/database");
@@ -34,6 +35,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/deepseek", deepseekRoutes);
 app.use("/api/milktea", milkTeaRoutes);
 app.use("/api/ocr", ocrRoutes);
+app.use("/api/auth", authRoutes);
 
 // 错误处理中间件
 app.use(errorHandler);

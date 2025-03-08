@@ -2,6 +2,13 @@ const express = require("express");
 const router = express.Router();
 const { MilkTea, sequelize } = require("../models");
 const { Op } = require("sequelize");
+const {
+  optionalAuthenticateToken,
+  authenticateToken,
+} = require("../middleware/auth");
+
+// 应用可选认证中间件到所有路由
+router.use(optionalAuthenticateToken);
 
 /**
  * 获取所有奶茶记录
@@ -9,7 +16,8 @@ const { Op } = require("sequelize");
  */
 router.get("/", async (req, res, next) => {
   try {
-    const { brand, flavor, startDate, endDate, sort, order } = req.query;
+    const { brand, flavor, startDate, endDate, sort, order, userId } =
+      req.query;
 
     // 构建查询条件
     const where = {};
@@ -29,23 +37,27 @@ router.get("/", async (req, res, next) => {
       where.purchaseDate = { [Op.lte]: endDate };
     }
 
+    // 如果提供了userId参数或用户已登录，则按用户ID过滤
+    if (userId) {
+      where.userId = userId;
+    } else if (req.user) {
+      where.userId = req.user.id;
+    }
+
     // 构建排序条件
-    const orderOptions = [];
-    if (
-      sort &&
-      ["brand", "flavor", "price", "purchaseDate", "calories"].includes(sort)
-    ) {
-      orderOptions.push([sort, order === "desc" ? "DESC" : "ASC"]);
+    const order_by = [];
+    if (sort && order) {
+      order_by.push([sort, order.toUpperCase()]);
     } else {
-      orderOptions.push(["purchaseDate", "DESC"]); // 默认按购买日期降序
+      order_by.push(["createdAt", "DESC"]);
     }
 
     const milkTeas = await MilkTea.findAll({
       where,
-      order: orderOptions,
+      order: order_by,
     });
 
-    res.status(200).json(milkTeas);
+    res.json(milkTeas);
   } catch (error) {
     next(error);
   }
@@ -86,28 +98,37 @@ router.post("/", async (req, res, next) => {
       caffeine,
       fat,
       notes,
+      userId,
     } = req.body;
 
     // 验证必填字段
-    if (!brand || !flavor || !price || !purchaseDate) {
-      return res
-        .status(400)
-        .json({ error: "品牌、口味、价格和购买日期为必填项" });
+    if (!brand || !flavor || !price) {
+      return res.status(400).json({ error: "品牌、口味和价格为必填项" });
     }
 
-    const newMilkTea = await MilkTea.create({
+    // 确定用户ID
+    let userIdToUse = userId;
+
+    // 如果请求中没有提供userId但用户已登录，则使用登录用户的ID
+    if (!userIdToUse && req.user) {
+      userIdToUse = req.user.id;
+    }
+
+    // 创建记录
+    const milkTea = await MilkTea.create({
       brand,
       flavor,
       price,
-      purchaseDate,
+      purchaseDate: purchaseDate || new Date(),
       calories,
       sugar,
       caffeine,
       fat,
       notes,
+      userId: userIdToUse,
     });
 
-    res.status(201).json(newMilkTea);
+    res.status(201).json(milkTea);
   } catch (error) {
     next(error);
   }
@@ -132,25 +153,32 @@ router.put("/:id", async (req, res, next) => {
       notes,
     } = req.body;
 
+    // 查找记录
     const milkTea = await MilkTea.findByPk(id);
+
     if (!milkTea) {
       return res.status(404).json({ error: "未找到该奶茶记录" });
     }
 
+    // 验证权限：只有记录的创建者或管理员可以更新
+    if (milkTea.userId && req.user && milkTea.userId !== req.user.id) {
+      return res.status(403).json({ error: "无权更新此记录" });
+    }
+
     // 更新记录
     await milkTea.update({
-      brand,
-      flavor,
-      price,
-      purchaseDate,
-      calories,
-      sugar,
-      caffeine,
-      fat,
-      notes,
+      brand: brand || milkTea.brand,
+      flavor: flavor || milkTea.flavor,
+      price: price || milkTea.price,
+      purchaseDate: purchaseDate || milkTea.purchaseDate,
+      calories: calories !== undefined ? calories : milkTea.calories,
+      sugar: sugar !== undefined ? sugar : milkTea.sugar,
+      caffeine: caffeine !== undefined ? caffeine : milkTea.caffeine,
+      fat: fat !== undefined ? fat : milkTea.fat,
+      notes: notes !== undefined ? notes : milkTea.notes,
     });
 
-    res.status(200).json(milkTea);
+    res.json(milkTea);
   } catch (error) {
     next(error);
   }
@@ -169,9 +197,13 @@ router.delete("/:id", async (req, res, next) => {
       return res.status(404).json({ error: "未找到该奶茶记录" });
     }
 
-    await milkTea.destroy();
+    // 验证权限：只有记录的创建者或管理员可以删除
+    if (milkTea.userId && req.user && milkTea.userId !== req.user.id) {
+      return res.status(403).json({ error: "无权删除此记录" });
+    }
 
-    res.status(200).json({ message: "奶茶记录已成功删除" });
+    await milkTea.destroy();
+    res.json({ message: "记录已成功删除" });
   } catch (error) {
     next(error);
   }
@@ -183,9 +215,33 @@ router.delete("/:id", async (req, res, next) => {
  */
 router.get("/stats/summary", async (req, res, next) => {
   try {
-    const totalCount = await MilkTea.count();
-    const totalSpent = await MilkTea.sum("price");
+    const { userId } = req.query;
+
+    // 构建查询条件
+    const where = {};
+
+    // 如果提供了userId参数或用户已登录，则按用户ID过滤
+    if (userId) {
+      where.userId = userId;
+    } else if (req.user) {
+      where.userId = req.user.id;
+    }
+
+    const totalCount = await MilkTea.count({ where });
+    const totalSpent = await MilkTea.sum("price", { where });
     const avgPrice = totalSpent / totalCount || 0;
+
+    // 获取平均热量
+    const avgCalories = await MilkTea.findOne({
+      attributes: [
+        [sequelize.fn("AVG", sequelize.col("calories")), "avgCalories"],
+      ],
+      where: {
+        ...where,
+        calories: { [Op.not]: null },
+      },
+      raw: true,
+    });
 
     // 获取品牌统计
     const brands = await MilkTea.findAll({
@@ -193,6 +249,7 @@ router.get("/stats/summary", async (req, res, next) => {
         "brand",
         [sequelize.fn("COUNT", sequelize.col("id")), "count"],
       ],
+      where,
       group: ["brand"],
       order: [[sequelize.fn("COUNT", sequelize.col("id")), "DESC"]],
     });
@@ -203,14 +260,16 @@ router.get("/stats/summary", async (req, res, next) => {
         "flavor",
         [sequelize.fn("COUNT", sequelize.col("id")), "count"],
       ],
+      where,
       group: ["flavor"],
       order: [[sequelize.fn("COUNT", sequelize.col("id")), "DESC"]],
     });
 
-    res.status(200).json({
+    res.json({
       totalCount,
       totalSpent,
       avgPrice,
+      avgCalories: avgCalories?.avgCalories || 0,
       brands,
       flavors,
     });
