@@ -1,5 +1,5 @@
 // 后端API配置
-const API_BASE_URL = "http://localhost:3001/api/deepseek";
+const API_BASE_URL = "https://tuanzi.voderl.cn/api/deepseek";
 
 /**
  * 发送文本到DeepSeek API进行奶茶信息识别（流式返回）

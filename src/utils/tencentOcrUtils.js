@@ -27,7 +27,7 @@ export const extractTextFromImage = async (imageFile) => {
     const imageBase64 = await fileToBase64(imageFile);
 
     // 调用后端代理服务
-    const response = await fetch("http://localhost:3001/api/ocr/general", {
+    const response = await fetch("https://tuanzi.voderl.cn/api/ocr/general", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -65,7 +65,7 @@ export const extractReceiptInfo = async (imageFile) => {
     const imageBase64 = await fileToBase64(imageFile);
 
     // 调用后端代理服务
-    const response = await fetch("http://localhost:3001/api/ocr/receipt", {
+    const response = await fetch("https://tuanzi.voderl.cn/api/ocr/receipt", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

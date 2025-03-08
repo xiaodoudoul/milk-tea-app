@@ -24,7 +24,7 @@ export const getAllMilkTeas = async (filters = {}, forceRemote = false) => {
       if (filters.order) queryParams.append("order", filters.order);
 
       const queryString = queryParams.toString();
-      const url = `http://localhost:3001/api/milktea${
+      const url = `https://tuanzi.voderl.cn/api/milktea${
         queryString ? `?${queryString}` : ""
       }`;
 
@@ -67,7 +67,7 @@ export const getMilkTeaStats = async () => {
     // 如果有用户ID且在线，则从后端获取数据
     if (userId && navigator.onLine) {
       const response = await fetch(
-        `http://localhost:3001/api/milktea/stats/summary?userId=${userId}`
+        `https://tuanzi.voderl.cn/api/milktea/stats/summary?userId=${userId}`
       );
 
       if (!response.ok) {
@@ -167,7 +167,7 @@ export const createMilkTea = async (data) => {
       // 添加用户ID
       const dataWithUserId = { ...data, userId };
 
-      const response = await fetch("http://localhost:3001/api/milktea", {
+      const response = await fetch("https://tuanzi.voderl.cn/api/milktea", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -217,13 +217,16 @@ export const updateMilkTea = async (id, data) => {
 
     // 如果有用户ID且在线，则更新后端
     if (userId && navigator.onLine && !id.startsWith("local_")) {
-      const response = await fetch(`http://localhost:3001/api/milktea/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
+      const response = await fetch(
+        `https://tuanzi.voderl.cn/api/milktea/${id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(
@@ -289,7 +292,7 @@ export const syncLocalData = async () => {
           // 添加用户ID
           const dataWithUserId = { ...recordData, userId };
 
-          const response = await fetch("http://localhost:3001/api/milktea", {
+          const response = await fetch("https://tuanzi.voderl.cn/api/milktea", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

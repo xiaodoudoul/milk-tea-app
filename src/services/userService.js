@@ -7,7 +7,7 @@ import * as localStorageService from "./localStorageService";
  */
 export const login = async (credentials) => {
   try {
-    const response = await fetch("http://localhost:3001/api/auth/login", {
+    const response = await fetch("https://tuanzi.voderl.cn/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -40,7 +40,7 @@ export const register = async (userData) => {
   try {
     console.log("发送注册请求:", userData.username);
 
-    const response = await fetch("http://localhost:3001/api/auth/register", {
+    const response = await fetch("https://tuanzi.voderl.cn/api/auth/register", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -81,7 +81,7 @@ export const logout = async () => {
 
     // 如果在线，则调用后端登出接口
     if (navigator.onLine) {
-      await fetch("http://localhost:3001/api/auth/logout", {
+      await fetch("https://tuanzi.voderl.cn/api/auth/logout", {
         method: "POST",
       });
     }
