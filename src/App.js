@@ -185,7 +185,13 @@ function App() {
       text.match(/奶茶价格[：:]\s*(.+?)元/m);
     const dateMatch =
       text.match(/\*\*奶茶日期\*\*[：:]\s*(.+?)(?:\n|$)/m) ||
-      text.match(/奶茶日期[：:]\s*(.+?)(?:\n|$)/m);
+      text.match(/奶茶日期[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/\*\*购买日期\*\*[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/购买日期[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/\*\*日期\*\*[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/日期[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/\*\*时间\*\*[：:]\s*(.+?)(?:\n|$)/m) ||
+      text.match(/时间[：:]\s*(.+?)(?:\n|$)/m);
 
     const brand = brandMatch ? brandMatch[1].trim() : null;
     const flavor = flavorMatch ? flavorMatch[1].trim() : null;
@@ -195,9 +201,46 @@ function App() {
     console.log("解析结果:", { brand, flavor, price, date });
 
     if (brand && flavor && price) {
-      const purchaseDate = date
-        ? dayjs(date, "YYYY年MM月DD日").format("YYYY-MM-DD")
-        : dayjs().format("YYYY-MM-DD");
+      // 尝试多种日期格式
+      let purchaseDate;
+      if (date) {
+        // 尝试多种常见的日期格式
+        const formats = [
+          "YYYY年MM月DD日",
+          "YYYY-MM-DD",
+          "YYYY/MM/DD",
+          "MM月DD日",
+          "MM-DD",
+          "MM/DD",
+        ];
+
+        console.log("尝试解析日期:", date);
+
+        // 如果是"MM月DD日"或"MM-DD"或"MM/DD"格式，添加当前年份
+        if (/^\d{1,2}[月/-]\d{1,2}[日]?$/.test(date)) {
+          const currentYear = dayjs().year();
+          const formattedDate = date.replace(/[月日]/g, "-").replace(/\/$/, "");
+          purchaseDate = dayjs(`${currentYear}-${formattedDate}`).format(
+            "YYYY-MM-DD"
+          );
+          console.log("解析短日期格式:", date, "->", purchaseDate);
+        } else {
+          // 尝试使用dayjs解析日期
+          const parsedDate = dayjs(date, formats);
+          if (parsedDate.isValid()) {
+            purchaseDate = parsedDate.format("YYYY-MM-DD");
+            console.log("成功解析日期:", date, "->", purchaseDate);
+          } else {
+            // 如果无法解析，使用当前日期
+            console.log("无法解析日期，使用当前日期:", date);
+            purchaseDate = dayjs().format("YYYY-MM-DD");
+          }
+        }
+      } else {
+        // 如果没有日期，使用当前日期
+        purchaseDate = dayjs().format("YYYY-MM-DD");
+        console.log("未提供日期，使用当前日期:", purchaseDate);
+      }
 
       const record = {
         brand,
