@@ -1,4 +1,5 @@
 import * as localStorageService from "./localStorageService";
+import config from "../config/env";
 
 /**
  * 获取所有奶茶消费记录
@@ -24,7 +25,7 @@ export const getAllMilkTeas = async (filters = {}, forceRemote = false) => {
       if (filters.order) queryParams.append("order", filters.order);
 
       const queryString = queryParams.toString();
-      const url = `https://tuanzi.voderl.cn/api/milktea${
+      const url = `${config.api.endpoints.milkTea}${
         queryString ? `?${queryString}` : ""
       }`;
 
@@ -67,7 +68,7 @@ export const getMilkTeaStats = async () => {
     // 如果有用户ID且在线，则从后端获取数据
     if (userId && navigator.onLine) {
       const response = await fetch(
-        `https://tuanzi.voderl.cn/api/milktea/stats/summary?userId=${userId}`
+        `${config.api.endpoints.milkTea}/stats/summary?userId=${userId}`
       );
 
       if (!response.ok) {
@@ -167,10 +168,11 @@ export const createMilkTea = async (data) => {
       // 添加用户ID
       const dataWithUserId = { ...data, userId };
 
-      const response = await fetch("https://tuanzi.voderl.cn/api/milktea", {
+      const response = await fetch(config.api.endpoints.milkTea, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorageService.getToken()}`,
         },
         body: JSON.stringify(dataWithUserId),
       });
@@ -213,28 +215,30 @@ export const createMilkTea = async (data) => {
  */
 export const updateMilkTea = async (id, data) => {
   try {
+    console.log(`尝试更新奶茶记录 ID: ${id}`, data);
     const userId = localStorageService.getUserId();
 
     // 如果有用户ID且在线，则更新后端
     if (userId && navigator.onLine && !id.startsWith("local_")) {
-      const response = await fetch(
-        `https://tuanzi.voderl.cn/api/milktea/${id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(data),
-        }
-      );
+      const response = await fetch(`${config.api.endpoints.milkTea}/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorageService.getToken()}`,
+        },
+        body: JSON.stringify(data),
+      });
 
       if (!response.ok) {
-        throw new Error(
-          `更新奶茶记录失败: ${response.status} ${response.statusText}`
-        );
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          errorData.error ||
+          `更新失败: ${response.status} ${response.statusText}`;
+        throw new Error(errorMessage);
       }
 
       const updatedRecord = await response.json();
+      console.log(`奶茶记录 ID: ${id} 更新成功`, updatedRecord);
 
       // 更新本地存储
       localStorageService.updateTeaRecord(updatedRecord);
@@ -254,25 +258,35 @@ export const updateMilkTea = async (id, data) => {
   } catch (error) {
     console.error("更新奶茶记录失败:", error);
 
-    // 如果后端请求失败，更新本地存储
-    console.log("后端请求失败，更新本地存储中的奶茶记录");
-    const updatedRecord = { ...data, id, updatedAt: new Date().toISOString() };
-    localStorageService.updateTeaRecord(updatedRecord);
-    return updatedRecord;
+    // 如果后端请求失败，尝试更新本地存储
+    if (error.message.includes("更新失败") || !navigator.onLine) {
+      console.log("后端请求失败，更新本地存储中的奶茶记录");
+      const updatedRecord = {
+        ...data,
+        id,
+        updatedAt: new Date().toISOString(),
+        isLocalOnly: true,
+      };
+      localStorageService.updateTeaRecord(updatedRecord);
+      return updatedRecord;
+    }
+
+    throw error;
   }
 };
 
 /**
- * 同步本地数据到后端
+ * 同步本地数据到服务器
  * @returns {Promise<Object>} - 返回同步结果
  */
 export const syncLocalData = async () => {
   try {
     const userId = localStorageService.getUserId();
+    const token = localStorageService.getToken();
 
     // 如果没有用户ID或不在线，则无法同步
-    if (!userId || !navigator.onLine) {
-      return { success: false, message: "无法同步数据：未登录或离线" };
+    if (!userId || !token || !navigator.onLine) {
+      return { success: false, message: "无法连接到服务器或未登录" };
     }
 
     // 获取未同步的记录
@@ -282,55 +296,78 @@ export const syncLocalData = async () => {
       return { success: true, message: "没有需要同步的数据" };
     }
 
-    // 同步每条记录
-    const syncResults = await Promise.all(
-      unsyncedRecords.map(async (record) => {
-        try {
-          // 移除本地ID和标记
-          const { id, isLocalOnly, ...recordData } = record;
-
-          // 添加用户ID
-          const dataWithUserId = { ...recordData, userId };
-
-          const response = await fetch("https://tuanzi.voderl.cn/api/milktea", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(dataWithUserId),
-          });
-
-          if (!response.ok) {
-            throw new Error(
-              `同步记录失败: ${response.status} ${response.statusText}`
-            );
-          }
-
-          const savedRecord = await response.json();
-
-          // 标记记录为已同步
-          localStorageService.markRecordSynced(id, savedRecord.id);
-
-          return { success: true, localId: id, serverId: savedRecord.id };
-        } catch (error) {
-          console.error(`同步记录 ${record.id} 失败:`, error);
-          return { success: false, localId: record.id, error: error.message };
-        }
-      })
-    );
-
-    // 获取最新的记录
-    await getAllMilkTeas({}, true);
-
-    return {
+    // 同步结果
+    const results = {
       success: true,
-      message: `同步完成: ${syncResults.filter((r) => r.success).length}/${
-        unsyncedRecords.length
-      } 条记录同步成功`,
-      results: syncResults,
+      total: unsyncedRecords.length,
+      synced: 0,
+      failed: 0,
+      details: [],
     };
+
+    // 逐个同步记录
+    for (const record of unsyncedRecords) {
+      try {
+        const localId = record.id;
+
+        // 移除本地ID和标记
+        const { id, isLocalOnly, ...recordData } = record;
+
+        // 添加用户ID
+        recordData.userId = userId;
+
+        // 发送到服务器
+        const response = await fetch(config.api.endpoints.milkTea, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(recordData),
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `同步失败: ${response.status} ${response.statusText}`
+          );
+        }
+
+        const savedRecord = await response.json();
+
+        // 标记为已同步
+        localStorageService.markRecordSynced(localId, savedRecord.id);
+
+        results.synced++;
+        results.details.push({
+          localId,
+          serverId: savedRecord.id,
+          success: true,
+        });
+      } catch (error) {
+        console.error(`同步记录 ${record.id} 失败:`, error);
+        results.failed++;
+        results.details.push({
+          localId: record.id,
+          success: false,
+          error: error.message,
+        });
+      }
+    }
+
+    // 如果有失败的记录，则标记整体同步为部分成功
+    if (results.failed > 0) {
+      results.success = false;
+      results.message = `同步部分完成: ${results.synced}/${results.total} 条记录已同步`;
+    } else {
+      results.message = `同步完成: ${results.synced} 条记录已同步`;
+    }
+
+    return results;
   } catch (error) {
     console.error("同步数据失败:", error);
-    return { success: false, message: `同步失败: ${error.message}` };
+    return {
+      success: false,
+      message: `同步失败: ${error.message}`,
+    };
   }
 };

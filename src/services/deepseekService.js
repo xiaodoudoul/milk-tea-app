@@ -1,5 +1,8 @@
+// 导入环境配置
+import config from "../config/env";
+
 // 后端API配置
-const API_BASE_URL = "https://tuanzi.voderl.cn/api/deepseek";
+const API_BASE_URL = `${config.api.baseUrl}/deepseek`;
 
 /**
  * 发送文本到DeepSeek API进行奶茶信息识别（流式返回）

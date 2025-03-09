@@ -3,6 +3,8 @@
  * @param {File} file - 图片文件
  * @returns {Promise<string>} - Base64编码的图片
  */
+import config from "../config/env";
+
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -27,7 +29,7 @@ export const extractTextFromImage = async (imageFile) => {
     const imageBase64 = await fileToBase64(imageFile);
 
     // 调用后端代理服务
-    const response = await fetch("https://tuanzi.voderl.cn/api/ocr/general", {
+    const response = await fetch(`${config.api.endpoints.ocr}/general`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -65,7 +67,7 @@ export const extractReceiptInfo = async (imageFile) => {
     const imageBase64 = await fileToBase64(imageFile);
 
     // 调用后端代理服务
-    const response = await fetch("https://tuanzi.voderl.cn/api/ocr/receipt", {
+    const response = await fetch(`${config.api.endpoints.ocr}/receipt`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

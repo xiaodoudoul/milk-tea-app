@@ -1,4 +1,5 @@
 import * as localStorageService from "./localStorageService";
+import config from "../config/env";
 
 /**
  * 用户登录
@@ -7,7 +8,7 @@ import * as localStorageService from "./localStorageService";
  */
 export const login = async (credentials) => {
   try {
-    const response = await fetch("https://tuanzi.voderl.cn/api/auth/login", {
+    const response = await fetch(`${config.api.endpoints.auth}/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -23,6 +24,11 @@ export const login = async (credentials) => {
 
     // 保存用户ID到本地存储
     localStorageService.saveUserId(data.userId);
+
+    // 保存认证令牌
+    if (data.token) {
+      localStorageService.saveToken(data.token);
+    }
 
     return data;
   } catch (error) {
@@ -40,7 +46,7 @@ export const register = async (userData) => {
   try {
     console.log("发送注册请求:", userData.username);
 
-    const response = await fetch("https://tuanzi.voderl.cn/api/auth/register", {
+    const response = await fetch(`${config.api.endpoints.auth}/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -63,6 +69,11 @@ export const register = async (userData) => {
     localStorageService.saveUserId(data.userId);
     console.log("用户ID已保存到本地存储:", data.userId);
 
+    // 保存认证令牌
+    if (data.token) {
+      localStorageService.saveToken(data.token);
+    }
+
     return data;
   } catch (error) {
     console.error("注册过程中出现错误:", error);
@@ -76,19 +87,24 @@ export const register = async (userData) => {
  */
 export const logout = async () => {
   try {
-    // 清除本地存储中的用户ID
+    // 清除本地存储中的用户ID和令牌
     localStorageService.clearUserId();
+    localStorageService.clearToken();
 
     // 如果在线，则调用后端登出接口
     if (navigator.onLine) {
-      await fetch("https://tuanzi.voderl.cn/api/auth/logout", {
+      await fetch(`${config.api.endpoints.auth}/logout`, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorageService.getToken()}`,
+        },
       });
     }
   } catch (error) {
     console.error("登出失败:", error);
     // 即使后端请求失败，也清除本地存储
     localStorageService.clearUserId();
+    localStorageService.clearToken();
   }
 };
 

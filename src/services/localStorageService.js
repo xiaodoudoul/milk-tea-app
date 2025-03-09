@@ -2,13 +2,10 @@
  * 本地存储服务
  * 提供保存和获取用户ID、奶茶记录等功能
  */
+import config from "../config/env";
 
 // 存储键名
-const STORAGE_KEYS = {
-  USER_ID: "milk_tea_app_user_id",
-  TEA_RECORDS: "milk_tea_app_tea_records",
-  LAST_SYNC: "milk_tea_app_last_sync",
-};
+const STORAGE_KEYS = config.storage.keys;
 
 /**
  * 保存用户ID到本地存储
@@ -16,7 +13,7 @@ const STORAGE_KEYS = {
  */
 export const saveUserId = (userId) => {
   if (userId) {
-    localStorage.setItem(STORAGE_KEYS.USER_ID, userId);
+    localStorage.setItem(STORAGE_KEYS.userId, userId);
   }
 };
 
@@ -25,14 +22,14 @@ export const saveUserId = (userId) => {
  * @returns {string|null} 用户ID，如果不存在则返回null
  */
 export const getUserId = () => {
-  return localStorage.getItem(STORAGE_KEYS.USER_ID);
+  return localStorage.getItem(STORAGE_KEYS.userId);
 };
 
 /**
  * 清除用户ID（登出）
  */
 export const clearUserId = () => {
-  localStorage.removeItem(STORAGE_KEYS.USER_ID);
+  localStorage.removeItem(STORAGE_KEYS.userId);
 };
 
 /**
@@ -41,9 +38,9 @@ export const clearUserId = () => {
  */
 export const saveTeaRecords = (records) => {
   if (records && Array.isArray(records)) {
-    localStorage.setItem(STORAGE_KEYS.TEA_RECORDS, JSON.stringify(records));
+    localStorage.setItem(STORAGE_KEYS.teaRecords, JSON.stringify(records));
     // 更新同步时间
-    localStorage.setItem(STORAGE_KEYS.LAST_SYNC, new Date().toISOString());
+    localStorage.setItem(STORAGE_KEYS.lastSync, new Date().toISOString());
   }
 };
 
@@ -52,7 +49,7 @@ export const saveTeaRecords = (records) => {
  * @returns {Array} 奶茶记录数组，如果不存在则返回空数组
  */
 export const getTeaRecords = () => {
-  const records = localStorage.getItem(STORAGE_KEYS.TEA_RECORDS);
+  const records = localStorage.getItem(STORAGE_KEYS.teaRecords);
   return records ? JSON.parse(records) : [];
 };
 
@@ -96,7 +93,7 @@ export const updateTeaRecord = (updatedRecord) => {
  * @returns {Date|null} 最后同步时间，如果不存在则返回null
  */
 export const getLastSyncTime = () => {
-  const lastSync = localStorage.getItem(STORAGE_KEYS.LAST_SYNC);
+  const lastSync = localStorage.getItem(STORAGE_KEYS.lastSync);
   return lastSync ? new Date(lastSync) : null;
 };
 
@@ -105,8 +102,7 @@ export const getLastSyncTime = () => {
  * @param {number} syncInterval 同步间隔（毫秒）
  * @returns {boolean} 是否需要同步
  */
-export const shouldSync = (syncInterval = 3600000) => {
-  // 默认1小时
+export const shouldSync = (syncInterval = config.storage.syncInterval) => {
   const lastSync = getLastSyncTime();
   if (!lastSync) return true;
 
@@ -139,6 +135,31 @@ export const markRecordSynced = (localId, serverId) => {
   }
 };
 
+/**
+ * 保存认证令牌到本地存储
+ * @param {string} token 认证令牌
+ */
+export const saveToken = (token) => {
+  if (token) {
+    localStorage.setItem(STORAGE_KEYS.authToken, token);
+  }
+};
+
+/**
+ * 从本地存储获取认证令牌
+ * @returns {string|null} 认证令牌，如果不存在则返回null
+ */
+export const getToken = () => {
+  return localStorage.getItem(STORAGE_KEYS.authToken);
+};
+
+/**
+ * 清除认证令牌（登出）
+ */
+export const clearToken = () => {
+  localStorage.removeItem(STORAGE_KEYS.authToken);
+};
+
 export default {
   saveUserId,
   getUserId,
@@ -151,4 +172,7 @@ export default {
   shouldSync,
   getUnsyncedRecords,
   markRecordSynced,
+  saveToken,
+  getToken,
+  clearToken,
 };

@@ -153,33 +153,57 @@ router.put("/:id", async (req, res, next) => {
       notes,
     } = req.body;
 
+    console.log(`尝试更新奶茶记录 ID: ${id}`, req.body);
+
     // 查找记录
     const milkTea = await MilkTea.findByPk(id);
 
     if (!milkTea) {
+      console.log(`未找到奶茶记录 ID: ${id}`);
       return res.status(404).json({ error: "未找到该奶茶记录" });
     }
 
     // 验证权限：只有记录的创建者或管理员可以更新
     if (milkTea.userId && req.user && milkTea.userId !== req.user.id) {
+      console.log(`用户 ${req.user.id} 无权更新记录 ${id}`);
       return res.status(403).json({ error: "无权更新此记录" });
     }
 
-    // 更新记录
-    await milkTea.update({
-      brand: brand || milkTea.brand,
-      flavor: flavor || milkTea.flavor,
-      price: price || milkTea.price,
-      purchaseDate: purchaseDate || milkTea.purchaseDate,
-      calories: calories !== undefined ? calories : milkTea.calories,
-      sugar: sugar !== undefined ? sugar : milkTea.sugar,
-      caffeine: caffeine !== undefined ? caffeine : milkTea.caffeine,
-      fat: fat !== undefined ? fat : milkTea.fat,
-      notes: notes !== undefined ? notes : milkTea.notes,
-    });
+    // 验证必填字段
+    if (!brand && !flavor && price === undefined) {
+      return res.status(400).json({ error: "至少需要提供一个字段进行更新" });
+    }
 
-    res.json(milkTea);
+    // 验证价格
+    if (price !== undefined && (isNaN(price) || price < 0)) {
+      return res.status(400).json({ error: "价格必须是非负数" });
+    }
+
+    // 准备更新数据
+    const updateData = {};
+
+    if (brand !== undefined) updateData.brand = brand;
+    if (flavor !== undefined) updateData.flavor = flavor;
+    if (price !== undefined) updateData.price = price;
+    if (purchaseDate !== undefined) updateData.purchaseDate = purchaseDate;
+    if (calories !== undefined) updateData.calories = calories;
+    if (sugar !== undefined) updateData.sugar = sugar;
+    if (caffeine !== undefined) updateData.caffeine = caffeine;
+    if (fat !== undefined) updateData.fat = fat;
+    if (notes !== undefined) updateData.notes = notes;
+
+    console.log(`更新奶茶记录 ID: ${id}`, updateData);
+
+    // 更新记录
+    await milkTea.update(updateData);
+
+    // 获取更新后的记录
+    const updatedMilkTea = await MilkTea.findByPk(id);
+
+    console.log(`奶茶记录 ID: ${id} 更新成功`);
+    res.json(updatedMilkTea);
   } catch (error) {
+    console.error(`更新奶茶记录失败:`, error);
     next(error);
   }
 });

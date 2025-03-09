@@ -19,6 +19,7 @@ import InputArea from "./components/InputArea";
 import TeaCalendar from "./components/TeaCalendar";
 import MilkTeaRecords from "./components/MilkTeaRecords";
 import UserInfo from "./components/UserInfo";
+import EnvIndicator from "./components/EnvIndicator";
 import { extractTextFromImage } from "./utils/tencentOcrUtils";
 import { recognizeMilkTeaInfo } from "./services/deepseekService";
 import {
@@ -675,6 +676,9 @@ function App() {
           )}
         </Snackbar>
       </Container>
+
+      {/* 环境指示器 */}
+      <EnvIndicator />
     </ThemeProvider>
   );
 }

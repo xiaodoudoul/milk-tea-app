@@ -11,21 +11,24 @@ import {
   TableRow,
   TablePagination,
   Chip,
-  IconButton,
-  Tooltip,
   CircularProgress,
   Alert,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
-import InfoIcon from "@mui/icons-material/Info";
 import LocalCafeIcon from "@mui/icons-material/LocalCafe";
-import { getAllMilkTeas } from "../services/milkTeaService";
+import EditIcon from "@mui/icons-material/Edit";
+import { getAllMilkTeas, updateMilkTea } from "../services/milkTeaService";
+import EditMilkTeaDialog from "./EditMilkTeaDialog";
 
-const MilkTeaRecords = ({ teaRecords: propRecords }) => {
+const MilkTeaRecords = ({ teaRecords: propRecords, onRecordUpdated }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [currentRecord, setCurrentRecord] = useState(null);
 
   // 在组件加载时获取奶茶消费记录
   useEffect(() => {
@@ -72,8 +75,49 @@ const MilkTeaRecords = ({ teaRecords: propRecords }) => {
     });
   };
 
+  // 处理编辑按钮点击
+  const handleEditClick = (record) => {
+    setCurrentRecord(record);
+    setEditDialogOpen(true);
+  };
+
+  // 处理编辑对话框关闭
+  const handleEditDialogClose = () => {
+    setEditDialogOpen(false);
+    setCurrentRecord(null);
+  };
+
+  // 处理保存编辑
+  const handleSaveEdit = async (updatedRecord) => {
+    try {
+      setLoading(true);
+      // 调用API更新记录
+      const result = await updateMilkTea(updatedRecord.id, updatedRecord);
+
+      // 更新本地记录列表
+      const updatedRecords = records.map((record) =>
+        record.id === result.id ? result : record
+      );
+      setRecords(updatedRecords);
+
+      // 关闭对话框
+      setEditDialogOpen(false);
+      setCurrentRecord(null);
+
+      // 如果有回调函数，则调用
+      if (onRecordUpdated) {
+        onRecordUpdated(result);
+      }
+    } catch (err) {
+      console.error("更新奶茶记录失败:", err);
+      setError("更新奶茶记录失败，请稍后再试");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 渲染加载状态
-  if (loading) {
+  if (loading && records.length === 0) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
         <CircularProgress />
@@ -120,8 +164,7 @@ const MilkTeaRecords = ({ teaRecords: propRecords }) => {
               <TableCell>口味</TableCell>
               <TableCell>价格</TableCell>
               <TableCell>日期</TableCell>
-              <TableCell>热量</TableCell>
-              <TableCell>详情</TableCell>
+              <TableCell align="center">操作</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -140,13 +183,14 @@ const MilkTeaRecords = ({ teaRecords: propRecords }) => {
                   <TableCell>{record.flavor}</TableCell>
                   <TableCell>¥{record.price.toFixed(2)}</TableCell>
                   <TableCell>{formatDate(record.purchaseDate)}</TableCell>
-                  <TableCell>
-                    {record.calories ? `${record.calories} 大卡` : "未知"}
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title="查看详情">
-                      <IconButton size="small">
-                        <InfoIcon fontSize="small" />
+                  <TableCell align="center">
+                    <Tooltip title="编辑">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleEditClick(record)}
+                      >
+                        <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                   </TableCell>
@@ -168,6 +212,14 @@ const MilkTeaRecords = ({ teaRecords: propRecords }) => {
           }
         />
       </TableContainer>
+
+      {/* 编辑对话框 */}
+      <EditMilkTeaDialog
+        open={editDialogOpen}
+        onClose={handleEditDialogClose}
+        onSave={handleSaveEdit}
+        teaRecord={currentRecord}
+      />
     </Box>
   );
 };
