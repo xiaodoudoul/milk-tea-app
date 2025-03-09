@@ -21,8 +21,12 @@ export const getAllMilkTeas = async (filters = {}, forceRemote = false) => {
       if (filters.flavor) queryParams.append("flavor", filters.flavor);
       if (filters.startDate) queryParams.append("startDate", filters.startDate);
       if (filters.endDate) queryParams.append("endDate", filters.endDate);
-      if (filters.sort) queryParams.append("sort", filters.sort);
-      if (filters.order) queryParams.append("order", filters.order);
+
+      // 设置默认排序为购买日期降序
+      const sort = filters.sort || "purchaseDate";
+      const order = filters.order || "DESC";
+      queryParams.append("sort", sort);
+      queryParams.append("order", order);
 
       const queryString = queryParams.toString();
       const url = `${config.api.endpoints.milkTea}${
@@ -46,14 +50,28 @@ export const getAllMilkTeas = async (filters = {}, forceRemote = false) => {
     } else {
       // 从本地存储获取数据
       console.log("从本地存储获取奶茶记录");
-      return localStorageService.getTeaRecords();
+      const records = localStorageService.getTeaRecords();
+
+      // 对本地数据进行排序
+      return records.sort((a, b) => {
+        const dateA = new Date(a.purchaseDate);
+        const dateB = new Date(b.purchaseDate);
+        return dateB - dateA; // 降序排序
+      });
     }
   } catch (error) {
     console.error("获取奶茶记录失败:", error);
 
     // 如果后端请求失败，尝试从本地存储获取
     console.log("后端请求失败，从本地存储获取奶茶记录");
-    return localStorageService.getTeaRecords();
+    const records = localStorageService.getTeaRecords();
+
+    // 对本地数据进行排序
+    return records.sort((a, b) => {
+      const dateA = new Date(a.purchaseDate);
+      const dateB = new Date(b.purchaseDate);
+      return dateB - dateA; // 降序排序
+    });
   }
 };
 
@@ -219,7 +237,7 @@ export const updateMilkTea = async (id, data) => {
     const userId = localStorageService.getUserId();
 
     // 如果有用户ID且在线，则更新后端
-    if (userId && navigator.onLine && !id.startsWith("local_")) {
+    if (userId && navigator.onLine && !id.toString().startsWith("local_")) {
       const response = await fetch(`${config.api.endpoints.milkTea}/${id}`, {
         method: "PUT",
         headers: {

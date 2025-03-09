@@ -6,29 +6,11 @@ import {
   DialogActions,
   TextField,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormHelperText,
   Grid,
 } from "@mui/material";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import zhCN from "date-fns/locale/zh-CN";
-
-// 常见奶茶品牌列表
-const COMMON_BRANDS = [
-  "喜茶",
-  "奈雪的茶",
-  "蜜雪冰城",
-  "一点点",
-  "茶百道",
-  "COCO都可",
-  "贡茶",
-  "沪上阿姨",
-  "其他",
-];
 
 const EditMilkTeaDialog = ({ open, onClose, onSave, teaRecord }) => {
   const [formData, setFormData] = useState({
@@ -36,6 +18,7 @@ const EditMilkTeaDialog = ({ open, onClose, onSave, teaRecord }) => {
     flavor: "",
     price: "",
     purchaseDate: new Date(),
+    id: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -50,6 +33,7 @@ const EditMilkTeaDialog = ({ open, onClose, onSave, teaRecord }) => {
         purchaseDate: teaRecord.purchaseDate
           ? new Date(teaRecord.purchaseDate)
           : new Date(),
+        id: teaRecord.id || "",
       });
     }
   }, [teaRecord]);
@@ -84,7 +68,7 @@ const EditMilkTeaDialog = ({ open, onClose, onSave, teaRecord }) => {
     const newErrors = {};
 
     if (!formData.brand.trim()) {
-      newErrors.brand = "请选择或输入奶茶品牌";
+      newErrors.brand = "请输入奶茶品牌";
     }
 
     if (!formData.flavor.trim()) {
@@ -108,72 +92,59 @@ const EditMilkTeaDialog = ({ open, onClose, onSave, teaRecord }) => {
   // 处理保存
   const handleSave = () => {
     if (validateForm()) {
-      const updatedRecord = {
-        ...teaRecord,
-        brand: formData.brand,
-        flavor: formData.flavor,
+      onSave({
+        ...formData,
         price: parseFloat(formData.price),
-        purchaseDate: formData.purchaseDate.toISOString(),
-      };
-      onSave(updatedRecord);
+      });
     }
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>编辑奶茶消费记录</DialogTitle>
+      <DialogTitle>编辑奶茶记录</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 1 }}>
           <Grid item xs={12}>
-            <FormControl fullWidth error={!!errors.brand}>
-              <InputLabel id="brand-label">奶茶品牌</InputLabel>
-              <Select
-                labelId="brand-label"
-                name="brand"
-                value={formData.brand}
-                onChange={handleChange}
-                label="奶茶品牌"
-              >
-                {COMMON_BRANDS.map((brand) => (
-                  <MenuItem key={brand} value={brand}>
-                    {brand}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.brand && <FormHelperText>{errors.brand}</FormHelperText>}
-            </FormControl>
+            <TextField
+              name="brand"
+              label="奶茶品牌"
+              value={formData.brand}
+              onChange={handleChange}
+              error={!!errors.brand}
+              helperText={errors.brand}
+              fullWidth
+              autoFocus
+            />
           </Grid>
-
           <Grid item xs={12}>
             <TextField
-              fullWidth
-              label="奶茶口味"
               name="flavor"
+              label="奶茶口味"
               value={formData.flavor}
               onChange={handleChange}
               error={!!errors.flavor}
               helperText={errors.flavor}
+              fullWidth
             />
           </Grid>
-
           <Grid item xs={12}>
             <TextField
-              fullWidth
-              label="价格 (¥)"
               name="price"
+              label="价格"
               type="number"
               value={formData.price}
               onChange={handleChange}
               error={!!errors.price}
               helperText={errors.price}
-              InputProps={{
-                startAdornment: "¥",
-              }}
+              fullWidth
+              inputProps={{ step: "0.1" }}
             />
           </Grid>
-
           <Grid item xs={12}>
-            <LocalizationProvider dateAdapter={AdapterDateFns} locale={zhCN}>
+            <LocalizationProvider
+              dateAdapter={AdapterDateFns}
+              adapterLocale={zhCN}
+            >
               <DatePicker
                 label="购买日期"
                 value={formData.purchaseDate}
