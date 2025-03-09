@@ -9,6 +9,7 @@
 - 腾讯云 OCR 图像识别
 - DeepSeek API 集成
 - 数据库自动同步到腾讯云 COS
+- 服务器文件备份功能
 
 ## 数据库同步功能
 
@@ -41,6 +42,33 @@ npm run db:upload
 # 手动从 COS 下载数据库
 npm run db:download
 ```
+
+## 服务器备份功能
+
+本服务提供了将整个服务器文件夹打包成压缩文件的功能，方便备份和迁移。备份不包含 `node_modules` 目录。
+
+### 创建备份
+
+```bash
+# 创建备份，默认保存到上级目录的 backups 文件夹
+npm run backup
+
+# 指定输出路径
+npm run backup -- /path/to/backup/folder
+
+# 指定输出路径和格式（支持 zip 或 tar）
+npm run backup -- /path/to/backup/folder tar
+```
+
+### 备份文件命名
+
+备份文件会自动添加时间戳，格式为：`server_backup_YYYYMMDD_HHMMSS.zip`
+
+### 特殊处理
+
+备份过程中会自动进行以下处理：
+
+1. **排除目录**：`node_modules` 和 `.git` 目录会被排除，减小备份文件大小
 
 ## 安装与运行
 
@@ -93,7 +121,7 @@ npm run db:download
 ```javascript
 async function callDeepSeekAPI(messages) {
   try {
-    const response = await fetch('http://localhost:3001/api/deepseek/chat', {
+    const response = await fetch('http://localhost:9000/api/deepseek/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

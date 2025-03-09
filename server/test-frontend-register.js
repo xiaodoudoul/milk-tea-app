@@ -15,7 +15,7 @@ async function testFrontendRegister() {
     // 1. 发送注册请求
     console.log("发送注册请求...");
     const registerResponse = await axios.post(
-      "http://localhost:3001/api/auth/register",
+      "http://localhost:9000/api/auth/register",
       testUser,
       {
         headers: {
@@ -35,7 +35,7 @@ async function testFrontendRegister() {
     console.log("尝试同步本地数据...");
     const syncResponse = await axios
       .post(
-        "http://localhost:3001/api/milktea/sync",
+        "http://localhost:9000/api/milktea/sync",
         {},
         {
           headers: {

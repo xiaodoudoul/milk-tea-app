@@ -12,7 +12,7 @@ const envName =
 const API_BASE_URL =
   process.env.REACT_APP_API_URL ||
   (isDevelopment
-    ? "http://localhost:3001/api"
+    ? "http://localhost:9000/api"
     : "https://tuanzi.voderl.cn/api");
 
 console.log(`应用运行在 ${envName} 环境，API地址: ${API_BASE_URL}`);

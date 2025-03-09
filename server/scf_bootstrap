@@ -1,0 +1,4 @@
+#!/bin/bash
+echo "hello world"
+npm ci
+/var/lang/node18/bin/node ./index.js

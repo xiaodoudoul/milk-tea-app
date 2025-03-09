@@ -12,7 +12,7 @@ const { initModels } = require("./models");
 const { initCOSSync } = require("./services/cosService");
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 9000;
 
 // 初始化数据库和 COS 同步
 (async () => {

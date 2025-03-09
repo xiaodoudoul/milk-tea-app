@@ -14,7 +14,7 @@ async function testRegister() {
     console.log("尝试注册用户:", testUser.username);
 
     const response = await axios.post(
-      "http://localhost:3001/api/auth/register",
+      "http://localhost:9000/api/auth/register",
       testUser,
       {
         headers: {
