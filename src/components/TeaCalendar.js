@@ -127,12 +127,15 @@ const ServerDay = (props) => {
         "& .MuiBadge-badge": {
           backgroundColor: theme.palette.primary.main,
           color: theme.palette.primary.contrastText,
-          minWidth: "20px",
-          height: "20px",
-          padding: "0 6px",
-          borderRadius: "10px",
-          fontSize: "0.75rem",
+          minWidth: "16px",
+          height: "16px",
+          padding: "0 4px",
+          borderRadius: "8px",
+          fontSize: "0.65rem",
           fontWeight: "bold",
+          right: "2px",
+          top: "2px",
+          transform: "scale(0.8) translate(25%, -25%)",
         },
       }}
     >
@@ -149,7 +152,7 @@ const ServerDay = (props) => {
           transition: "all 0.2s ease-in-out",
           "&:hover": {
             backgroundColor: theme.palette.primary.main,
-            transform: "scale(1.1)",
+            transform: "scale(1.05)",
           },
           "&.Mui-selected": {
             backgroundColor: theme.palette.primary.dark,
