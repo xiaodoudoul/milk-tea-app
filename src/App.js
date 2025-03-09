@@ -99,16 +99,8 @@ function App() {
         setIsLoadingRecords(true);
         const records = await getAllMilkTeas({}, true); // 强制从后端获取
         setTeaRecords(records);
-        setNotification({
-          type: "success",
-          message: "已获取云端数据",
-        });
       } catch (error) {
         console.error("获取奶茶记录失败:", error);
-        setNotification({
-          type: "error",
-          message: "获取云端数据失败，使用本地数据",
-        });
       } finally {
         setIsLoadingRecords(false);
       }
@@ -595,6 +587,36 @@ function App() {
     }
   };
 
+  // 处理记录更新
+  const handleRecordUpdated = (updatedRecord) => {
+    console.log("记录已更新:", updatedRecord);
+    // 更新本地记录列表
+    setTeaRecords((prevRecords) => {
+      // 如果是分页数据结构
+      if (prevRecords.records && Array.isArray(prevRecords.records)) {
+        return {
+          ...prevRecords,
+          records: prevRecords.records.map((record) =>
+            record.id === updatedRecord.id ? updatedRecord : record
+          ),
+        };
+      }
+      // 如果是普通数组
+      if (Array.isArray(prevRecords)) {
+        return prevRecords.map((record) =>
+          record.id === updatedRecord.id ? updatedRecord : record
+        );
+      }
+      return prevRecords;
+    });
+
+    // 显示通知
+    setNotification({
+      type: "success",
+      message: "奶茶记录已更新",
+    });
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -655,7 +677,10 @@ function App() {
               <CircularProgress />
             </Box>
           )}
-          <MilkTeaRecords teaRecords={teaRecords} />
+          <MilkTeaRecords
+            teaRecords={teaRecords}
+            onRecordUpdated={handleRecordUpdated}
+          />
         </Box>
 
         {/* 通知提示 */}

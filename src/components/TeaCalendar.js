@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Paper,
   Typography,
@@ -71,190 +71,199 @@ const zhCNLocale = {
   },
 };
 
-// 自定义日期组件
-const ServerDay = (props) => {
-  const {
-    day,
-    outsideCurrentMonth,
-    teaRecords,
-    selectedDate,
-    setSelectedDate,
-    ...other
-  } = props;
-
-  const theme = useTheme();
-
-  // 检查当天是否有奶茶记录
-  const dayRecords = teaRecords.filter(
-    (record) =>
-      dayjs(record.purchaseDate).format("YYYY-MM-DD") ===
-      day.format("YYYY-MM-DD")
-  );
-  const isTeaDay = dayRecords.length > 0;
-
-  // 计算当天总消费
-  const dayTotal = dayRecords.reduce(
-    (sum, record) => sum + parseFloat(record.price || 0),
-    0
-  );
-
-  // 检查是否是选中的日期
-  const isSelected =
-    selectedDate &&
-    selectedDate.format("YYYY-MM-DD") === day.format("YYYY-MM-DD");
-
-  // 如果不是当前月份或没有记录，正常渲染
-  if (outsideCurrentMonth || !isTeaDay) {
-    return (
-      <PickersDay
-        {...other}
-        day={day}
-        outsideCurrentMonth={outsideCurrentMonth}
-        selected={isSelected}
-        onClick={() => setSelectedDate(day)}
-      />
-    );
-  }
-
-  // 有记录的日期，添加醒目标记
-  return (
-    <Badge
-      key={day.toString()}
-      overlap="circular"
-      badgeContent={dayRecords.length}
-      color="primary"
-      sx={{
-        "& .MuiBadge-badge": {
-          backgroundColor: theme.palette.primary.main,
-          color: theme.palette.primary.contrastText,
-          minWidth: "16px",
-          height: "16px",
-          padding: "0 4px",
-          borderRadius: "8px",
-          fontSize: "0.65rem",
-          fontWeight: "bold",
-          right: "2px",
-          top: "2px",
-          transform: "scale(0.8) translate(25%, -25%)",
-        },
-      }}
-    >
-      <PickersDay
-        {...other}
-        day={day}
-        outsideCurrentMonth={outsideCurrentMonth}
-        selected={isSelected}
-        onClick={() => setSelectedDate(day)}
-        sx={{
-          backgroundColor: theme.palette.primary.light,
-          color: theme.palette.primary.contrastText,
-          borderRadius: "50%",
-          transition: "all 0.2s ease-in-out",
-          "&:hover": {
-            backgroundColor: theme.palette.primary.main,
-            transform: "scale(1.05)",
-          },
-          "&.Mui-selected": {
-            backgroundColor: theme.palette.primary.dark,
-            color: theme.palette.primary.contrastText,
-            "&:hover": {
-              backgroundColor: theme.palette.primary.dark,
-            },
-          },
-          ...(dayTotal > 50 && {
-            border: `2px solid ${theme.palette.warning.main}`,
-          }),
-        }}
-      />
-    </Badge>
-  );
-};
-
-// 奶茶详情组件
-const TeaDetails = ({ date, records }) => {
-  if (!date || !records || records.length === 0) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100%",
-        }}
-      >
-        <Typography color="text.secondary">
-          选择有奶茶记录的日期查看详情
-        </Typography>
-      </Box>
-    );
-  }
-
-  return (
-    <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <CardContent>
-        <Typography variant="h6" gutterBottom color="primary">
-          {date.format("YYYY年MM月DD日")}奶茶记录
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-
-        {records.map((record, index) => (
-          <Box key={index} sx={{ mb: 2 }}>
-            <Typography
-              variant="subtitle1"
-              fontWeight="bold"
-              style={{ display: "flex", justifyContent: "space-between" }}
-            >
-              {record.brand} - {record.flavor}
-              <div
-                style={{ color: "rgba(0, 0, 0, 0.6)", fontWeight: "normal" }}
-              >
-                价格：{record.price}元
-              </div>
-            </Typography>
-            <Typography variant="body2" color="text.secondary"></Typography>
-            {index < records.length - 1 && <Divider sx={{ my: 1 }} />}
-          </Box>
-        ))}
-
-        {records.length > 1 && (
-          <Box sx={{ mt: 2 }}>
-            <Divider sx={{ mb: 1 }} />
-            <Typography variant="body2" color="text.secondary">
-              当日共消费：
-              {records
-                .reduce((sum, record) => sum + parseFloat(record.price || 0), 0)
-                .toFixed(2)}
-              元
-            </Typography>
-          </Box>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
 const TeaCalendar = ({ teaRecords = [] }) => {
   const theme = useTheme();
   const [selectedDate, setSelectedDate] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(dayjs());
+  const [records, setRecords] = useState([]);
+
+  // 当传入的记录更新时，更新本地状态
+  useEffect(() => {
+    console.log("TeaCalendar 接收到新的记录:", teaRecords);
+    // 确保 records 是数组
+    if (Array.isArray(teaRecords)) {
+      setRecords(teaRecords);
+    } else if (
+      teaRecords &&
+      teaRecords.records &&
+      Array.isArray(teaRecords.records)
+    ) {
+      setRecords(teaRecords.records);
+    } else {
+      setRecords([]);
+    }
+  }, [teaRecords]);
 
   // 计算当月总消费
   const calculateMonthlyExpense = (date) => {
-    if (!teaRecords || teaRecords.length === 0) return 0;
+    if (!records || records.length === 0) return 0;
 
     const currentMonth = date.format("YYYY-MM");
-    return teaRecords
-      .filter((record) => dayjs(record.date).format("YYYY-MM") === currentMonth)
+    return records
+      .filter(
+        (record) =>
+          dayjs(record.purchaseDate).format("YYYY-MM") === currentMonth
+      )
       .reduce((sum, record) => sum + parseFloat(record.price || 0), 0);
   };
 
   // 获取指定日期的奶茶记录
   const getDayTeaRecords = (date) => {
-    if (!date || !teaRecords || teaRecords.length === 0) return [];
+    if (!date || !records || records.length === 0) return [];
 
     const dateStr = date.format("YYYY-MM-DD");
-    return teaRecords.filter(
+    return records.filter(
       (record) => dayjs(record.purchaseDate).format("YYYY-MM-DD") === dateStr
+    );
+  };
+
+  // 自定义日期组件
+  const ServerDay = (props) => {
+    const { day, outsideCurrentMonth, ...other } = props;
+
+    // 获取当天的记录
+    const dayRecords = getDayTeaRecords(day);
+    const hasRecords = dayRecords.length > 0;
+    const totalSpent = dayRecords.reduce(
+      (sum, record) => sum + parseFloat(record.price || 0),
+      0
+    );
+
+    // 检查是否是选中的日期
+    const isSelected =
+      selectedDate &&
+      selectedDate.format("YYYY-MM-DD") === day.format("YYYY-MM-DD");
+
+    // 如果不是当前月份或没有记录，正常渲染
+    if (outsideCurrentMonth || !hasRecords) {
+      return (
+        <PickersDay
+          {...other}
+          day={day}
+          outsideCurrentMonth={outsideCurrentMonth}
+          selected={isSelected}
+          onClick={() => setSelectedDate(day)}
+        />
+      );
+    }
+
+    // 有记录的日期，添加醒目标记
+    return (
+      <Badge
+        key={day.toString()}
+        overlap="circular"
+        badgeContent={dayRecords.length}
+        color="primary"
+        sx={{
+          "& .MuiBadge-badge": {
+            backgroundColor: theme.palette.primary.main,
+            color: theme.palette.primary.contrastText,
+            minWidth: "16px",
+            height: "16px",
+            padding: "0 4px",
+            borderRadius: "8px",
+            fontSize: "0.65rem",
+            fontWeight: "bold",
+            right: "2px",
+            top: "2px",
+            transform: "scale(0.8) translate(25%, -25%)",
+          },
+        }}
+      >
+        <PickersDay
+          {...other}
+          day={day}
+          outsideCurrentMonth={outsideCurrentMonth}
+          selected={isSelected}
+          onClick={() => setSelectedDate(day)}
+          sx={{
+            backgroundColor: theme.palette.primary.light,
+            color: theme.palette.primary.contrastText,
+            borderRadius: "50%",
+            transition: "all 0.2s ease-in-out",
+            "&:hover": {
+              backgroundColor: theme.palette.primary.main,
+              transform: "scale(1.05)",
+            },
+            "&.Mui-selected": {
+              backgroundColor: theme.palette.primary.dark,
+              color: theme.palette.primary.contrastText,
+              "&:hover": {
+                backgroundColor: theme.palette.primary.dark,
+              },
+            },
+            ...(totalSpent > 50 && {
+              border: `2px solid ${theme.palette.warning.main}`,
+            }),
+          }}
+        />
+      </Badge>
+    );
+  };
+
+  // 奶茶详情组件
+  const TeaDetails = ({ date, records }) => {
+    if (!date || !records || records.length === 0) {
+      return (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "100%",
+          }}
+        >
+          <Typography color="text.secondary">
+            选择有奶茶记录的日期查看详情
+          </Typography>
+        </Box>
+      );
+    }
+
+    return (
+      <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom color="primary">
+            {date.format("YYYY年MM月DD日")}奶茶记录
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+
+          {records.map((record, index) => (
+            <Box key={index} sx={{ mb: 2 }}>
+              <Typography
+                variant="subtitle1"
+                fontWeight="bold"
+                style={{ display: "flex", justifyContent: "space-between" }}
+              >
+                {record.brand} - {record.flavor}
+                <div
+                  style={{ color: "rgba(0, 0, 0, 0.6)", fontWeight: "normal" }}
+                >
+                  价格：{record.price}元
+                </div>
+              </Typography>
+              <Typography variant="body2" color="text.secondary"></Typography>
+              {index < records.length - 1 && <Divider sx={{ my: 1 }} />}
+            </Box>
+          ))}
+
+          {records.length > 1 && (
+            <Box sx={{ mt: 2 }}>
+              <Divider sx={{ mb: 1 }} />
+              <Typography variant="body2" color="text.secondary">
+                当日共消费：
+                {records
+                  .reduce(
+                    (sum, record) => sum + parseFloat(record.price || 0),
+                    0
+                  )
+                  .toFixed(2)}
+                元
+              </Typography>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
     );
   };
 
@@ -289,14 +298,7 @@ const TeaCalendar = ({ teaRecords = [] }) => {
                   }
                 }}
                 slots={{
-                  day: (props) => (
-                    <ServerDay
-                      {...props}
-                      teaRecords={teaRecords}
-                      selectedDate={selectedDate}
-                      setSelectedDate={setSelectedDate}
-                    />
-                  ),
+                  day: ServerDay,
                 }}
                 // 自定义日期格式
                 formatDensity="spacious"
