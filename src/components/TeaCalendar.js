@@ -82,11 +82,20 @@ const ServerDay = (props) => {
     ...other
   } = props;
 
+  const theme = useTheme();
+
   // 检查当天是否有奶茶记录
-  const isTeaDay = teaRecords.some(
+  const dayRecords = teaRecords.filter(
     (record) =>
       dayjs(record.purchaseDate).format("YYYY-MM-DD") ===
       day.format("YYYY-MM-DD")
+  );
+  const isTeaDay = dayRecords.length > 0;
+
+  // 计算当天总消费
+  const dayTotal = dayRecords.reduce(
+    (sum, record) => sum + parseFloat(record.price || 0),
+    0
   );
 
   // 检查是否是选中的日期
@@ -102,24 +111,28 @@ const ServerDay = (props) => {
         day={day}
         outsideCurrentMonth={outsideCurrentMonth}
         selected={isSelected}
+        onClick={() => setSelectedDate(day)}
       />
     );
   }
 
-  // 有记录的日期，添加标记
+  // 有记录的日期，添加醒目标记
   return (
     <Badge
       key={day.toString()}
       overlap="circular"
-      badgeContent=" "
+      badgeContent={dayRecords.length}
       color="primary"
       sx={{
         "& .MuiBadge-badge": {
-          width: "6px",
-          height: "6px",
-          borderRadius: "50%",
-          padding: 0,
-          minWidth: 0,
+          backgroundColor: theme.palette.primary.main,
+          color: theme.palette.primary.contrastText,
+          minWidth: "20px",
+          height: "20px",
+          padding: "0 6px",
+          borderRadius: "10px",
+          fontSize: "0.75rem",
+          fontWeight: "bold",
         },
       }}
     >
@@ -128,8 +141,26 @@ const ServerDay = (props) => {
         day={day}
         outsideCurrentMonth={outsideCurrentMonth}
         selected={isSelected}
-        onClick={() => {
-          setSelectedDate(day);
+        onClick={() => setSelectedDate(day)}
+        sx={{
+          backgroundColor: theme.palette.primary.light,
+          color: theme.palette.primary.contrastText,
+          borderRadius: "50%",
+          transition: "all 0.2s ease-in-out",
+          "&:hover": {
+            backgroundColor: theme.palette.primary.main,
+            transform: "scale(1.1)",
+          },
+          "&.Mui-selected": {
+            backgroundColor: theme.palette.primary.dark,
+            color: theme.palette.primary.contrastText,
+            "&:hover": {
+              backgroundColor: theme.palette.primary.dark,
+            },
+          },
+          ...(dayTotal > 50 && {
+            border: `2px solid ${theme.palette.warning.main}`,
+          }),
         }}
       />
     </Badge>
