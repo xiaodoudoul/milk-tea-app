@@ -31,6 +31,40 @@ const zhCNLocale = {
           // 确保月份在年份后面
           calendarViewSwitchingButtonAriaLabel: (view) =>
             view === "year" ? "切换到年份视图" : "切换到日历视图",
+          // 月份名称
+          monthsShort: [
+            "1月",
+            "2月",
+            "3月",
+            "4月",
+            "5月",
+            "6月",
+            "7月",
+            "8月",
+            "9月",
+            "10月",
+            "11月",
+            "12月",
+          ],
+          months: [
+            "一月",
+            "二月",
+            "三月",
+            "四月",
+            "五月",
+            "六月",
+            "七月",
+            "八月",
+            "九月",
+            "十月",
+            "十一月",
+            "十二月",
+          ],
+          // 日历头部格式
+          datePickerDefaultToolbarTitle: "选择日期",
+          // 年月格式
+          dateFormat: "YYYY年MM月DD日",
+          dateFormatItem: "YYYY年MM月",
         },
       },
     },
@@ -131,12 +165,19 @@ const TeaDetails = ({ date, records }) => {
 
         {records.map((record, index) => (
           <Box key={index} sx={{ mb: 2 }}>
-            <Typography variant="subtitle1" fontWeight="bold">
+            <Typography
+              variant="subtitle1"
+              fontWeight="bold"
+              style={{ display: "flex", justifyContent: "space-between" }}
+            >
               {record.brand} - {record.flavor}
+              <div
+                style={{ color: "rgba(0, 0, 0, 0.6)", fontWeight: "normal" }}
+              >
+                价格：{record.price}元
+              </div>
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              价格：{record.price}元
-            </Typography>
+            <Typography variant="body2" color="text.secondary"></Typography>
             {index < records.length - 1 && <Divider sx={{ my: 1 }} />}
           </Box>
         ))}
@@ -225,14 +266,6 @@ const TeaCalendar = ({ teaRecords = [] }) => {
                 }}
                 // 自定义日期格式
                 formatDensity="spacious"
-                views={["day"]}
-                // 自定义月份标题格式
-                slotProps={{
-                  toolbar: {
-                    toolbarFormat: "YYYY年MM月",
-                    hidden: false,
-                  },
-                }}
               />
 
               <Typography
