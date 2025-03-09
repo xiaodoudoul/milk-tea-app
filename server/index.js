@@ -9,14 +9,27 @@ const errorHandler = require("./middleware/errorHandler");
 const logger = require("./middleware/logger");
 const { testConnection } = require("./config/database");
 const { initModels } = require("./models");
+const { initCOSSync } = require("./services/cosService");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// 初始化数据库
+// 初始化数据库和 COS 同步
 (async () => {
-  await testConnection();
-  await initModels();
+  try {
+    // 先从 COS 同步数据库文件
+    console.log("正在初始化 COS 同步服务...");
+    await initCOSSync();
+
+    // 然后初始化数据库连接
+    console.log("正在初始化数据库连接...");
+    await testConnection();
+    await initModels();
+
+    console.log("服务初始化完成");
+  } catch (error) {
+    console.error("服务初始化失败:", error);
+  }
 })();
 
 // 中间件
