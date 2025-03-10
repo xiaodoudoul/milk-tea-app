@@ -24,14 +24,56 @@ const AuthDialog = ({ open, onClose, onLoginSuccess }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [usernameError, setUsernameError] = useState("");
   const [syncStatus, setSyncStatus] = useState(null);
 
   // 处理标签切换
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
     setError("");
+    setUsernameError("");
+    // 切换标签时清空密码和确认密码
+    setPassword("");
+    setConfirmPassword("");
+  };
+
+  // 处理对话框关闭
+  const handleClose = () => {
+    if (!loading) {
+      setUsername("");
+      setPassword("");
+      setConfirmPassword("");
+      setEmail("");
+      setError("");
+      setUsernameError("");
+      setSyncStatus(null);
+      onClose();
+    }
+  };
+
+  // 验证用户名
+  const validateUsername = (value) => {
+    if (activeTab === 1) {
+      // 只在注册时验证
+      if (value.length < 3 || value.length > 30) {
+        setUsernameError("用户名长度必须在3-30个字符之间");
+        return false;
+      } else {
+        setUsernameError("");
+        return true;
+      }
+    }
+    return true;
+  };
+
+  // 处理用户名变更
+  const handleUsernameChange = (e) => {
+    const value = e.target.value;
+    setUsername(value);
+    validateUsername(value);
   };
 
   // 处理登录
@@ -76,8 +118,21 @@ const AuthDialog = ({ open, onClose, onLoginSuccess }) => {
       return;
     }
 
+    // 验证用户名长度
+    if (!validateUsername(username)) {
+      setError("用户名长度必须在3-30个字符之间");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("两次输入的密码不一致");
+      return;
+    }
+
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      setError("请输入有效的邮箱地址");
       return;
     }
 
@@ -86,7 +141,7 @@ const AuthDialog = ({ open, onClose, onLoginSuccess }) => {
       setError("");
 
       console.log("开始注册用户:", username);
-      const result = await register({ username, password });
+      const result = await register({ username, password, email });
       console.log("注册成功:", result);
 
       // 尝试同步本地数据
@@ -125,12 +180,7 @@ const AuthDialog = ({ open, onClose, onLoginSuccess }) => {
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={loading ? undefined : onClose}
-      maxWidth="xs"
-      fullWidth
-    >
+    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle>
         <Tabs value={activeTab} onChange={handleTabChange} centered>
           <Tab label="登录" />
@@ -169,9 +219,15 @@ const AuthDialog = ({ open, onClose, onLoginSuccess }) => {
             fullWidth
             variant="outlined"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={handleUsernameChange}
             disabled={loading}
             required
+            helperText={
+              activeTab === 1
+                ? usernameError || "用户名长度必须在3-30个字符之间"
+                : ""
+            }
+            error={activeTab === 1 && !!usernameError && username.length > 0}
           />
 
           <TextField
@@ -187,17 +243,31 @@ const AuthDialog = ({ open, onClose, onLoginSuccess }) => {
           />
 
           {activeTab === 1 && (
-            <TextField
-              margin="dense"
-              label="确认密码"
-              type="password"
-              fullWidth
-              variant="outlined"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={loading}
-              required
-            />
+            <>
+              <TextField
+                margin="dense"
+                label="确认密码"
+                type="password"
+                fullWidth
+                variant="outlined"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={loading}
+                required
+              />
+              <TextField
+                margin="dense"
+                label="邮箱"
+                type="email"
+                fullWidth
+                variant="outlined"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                required
+                helperText="请输入有效的邮箱地址"
+              />
+            </>
           )}
 
           <Box sx={{ mt: 2, textAlign: "center" }}>
@@ -210,7 +280,7 @@ const AuthDialog = ({ open, onClose, onLoginSuccess }) => {
         </DialogContent>
 
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={onClose} disabled={loading}>
+          <Button onClick={handleClose} disabled={loading}>
             取消
           </Button>
           <Button
