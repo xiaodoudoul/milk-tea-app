@@ -20,6 +20,7 @@
     "jsonwebtoken": "^9.0.2",
     "lowdb": "^1.0.0",
     "node-fetch": "^3.3.2",
+    "openai": "^4.90.0",
     "sequelize": "^6.37.6",
     "sqlite3": "^5.1.7",
     "tencentcloud-sdk-nodejs": "^4.0.1045",
